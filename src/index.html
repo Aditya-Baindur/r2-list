@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CDN ADMIN</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: "#0a0a0a",
+            card: "#0f0f0f",
+            line: "#1a1a1a",
+            text: "#eaeaea",
+            muted: "#9a9a9a",
+            hover: "#141414",
+            accent: "#3b82f6"
+          }
+        }
+      }
+    }
+  </script>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="min-h-screen bg-bg text-text antialiased">
+
+<header class="border-b border-line">
+  <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div>
+      <a href="/"><h1 class="text-lg font-medium hover:underline">CDN Admin</h1></a>
+      <div id="breadcrumb" class="text-sm text-muted mt-1"></div>
+      <p class="justify-center items-center">Remember that moving the files changes the base URL too. So be careful</p>
+    </div>
+  </div>
+</header>
+
+<div class="max-w-5xl mx-auto px-6 py-4 flex flex-wrap gap-2">
+  <input id="newDir" placeholder="New folder"
+    class="bg-card border border-line rounded px-3 py-2 text-sm w-48" />
+  <button id="createDir"
+    class="bg-accent px-4 py-2 rounded text-sm hover:opacity-90">
+    Create
+  </button>
+
+  <button id="openUpload"
+    class="ml-auto bg-green-500 px-4 py-2 rounded text-sm hover:opacity-90">
+    Upload
+  </button>
+</div>
+
+<main class="max-w-5xl mx-auto px-6 pb-16">
+  <div class="rounded-lg bg-card ring-1 ring-line overflow-hidden">
+    <ul id="list" class="divide-y divide-line"></ul>
+  </div>
+</main>
+
+<!-- UPLOAD OVERLAY -->
+<div id="uploadOverlay"
+  class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50">
+
+  <div
+    class="relative border-2 border-dashed border-line rounded-xl w-[90vw] h-[60vh] max-w-3xl flex flex-col items-center justify-center text-center p-8 bg-card transition">
+
+    <i data-lucide="upload-cloud" class="w-12 h-12 text-muted mb-4"></i>
+    <p class="text-lg mb-1">Drop files here</p>
+    <p class="text-sm text-muted mb-6">or click to browse</p>
+
+    <input id="fileInput" type="file" class="hidden" />
+
+    <select id="uploadDir"
+      class="bg-bg border border-line rounded px-3 py-2 text-sm">
+      <option value="">/</option>
+    </select>
+
+    <button id="closeUpload"
+      class="absolute top-6 right-6 text-muted hover:text-text">
+      <i data-lucide="x"></i>
+    </button>
+  </div>
+</div>
+
+<!-- MOVE OVERLAY -->
+<div id="moveOverlay"
+  class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50">
+
+  <div class="bg-card rounded-xl w-[90vw] max-w-4xl h-[70vh] flex shadow-xl overflow-hidden">
+
+    <!-- LEFT: Info -->
+    <div class="w-64 border-r border-line p-4 flex flex-col">
+      <p class="text-sm text-muted mb-2">Moving</p>
+      <p id="moveItemName" class="font-medium truncate mb-4"></p>
+
+      <div class="mt-auto flex gap-2">
+        <button id="cancelMove"
+          class="px-3 py-2 text-sm bg-bg rounded hover:bg-hover w-full">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT: Browser -->
+    <div class="flex-1 flex flex-col">
+
+      <!-- Path bar -->
+      <div id="moveBreadcrumb"
+        class="border-b border-line px-4 py-2 text-sm text-muted flex gap-1">
+      </div>
+
+      <!-- Folder list -->
+      <div class="flex-1 overflow-y-auto">
+        <ul id="moveList" class="divide-y divide-line"></ul>
+      </div>
+
+      <!-- Footer -->
+      <div class="border-t border-line p-4 flex justify-between items-center">
+        <p id="moveDestLabel" class="text-sm text-muted">Destination: /</p>
+
+        <button id="confirmMove"
+          class="bg-accent px-5 py-2 rounded text-sm hover:opacity-90">
+          Move here
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const { CDN_BASE, API_BASE, ENV } = window.CONFIG;
+
+
+
+console.log("ENV IN HTML =", ENV);
+console.log("API =", API_BASE);
+console.log("CDN =", CDN_BASE);
+
+let moving = null;       // { key, isDir, name }
+let movePath = "";      // current browsing path
+
+
+async function fetchDirsForMove(path="") {
+  const apiPrefix = path ? `${path}/` : "";
+  const res = await fetch(`${API_BASE}/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
+  return res.json();
+}
+
+
+
+const params = new URLSearchParams(location.search);
+let prefix = params.get("path") || "";
+if (prefix === "/" || !prefix) prefix = "";
+else prefix = prefix.replace(/^\/+|\/+$/g, "");
+
+breadcrumb.innerHTML = renderBreadcrumb(prefix);
+
+async function fetchList() {
+  const apiPrefix = prefix ? `${prefix}/` : "";
+  const res = await fetch(`${API_BASE}/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
+  return res.json();
+}
+
+function render(data) {
+  list.innerHTML = "";
+
+  if (prefix) {
+    const parent = prefix.split("/").slice(0, -1).join("/");
+    list.appendChild(backRow(parent ? `?path=${parent}` : "/"));
+  }
+
+  data.directories.forEach(dir => {
+    const clean = dir.replace(/\/$/, "");
+    list.appendChild(row("folder", clean.split("/").pop(), `?path=${clean}`, clean, true));
+  });
+
+  data.files.forEach(file => {
+    list.appendChild(row(
+      "file",
+      file.split("/").pop(),
+      `${CDN_BASE}/${decodeURIComponent(file)}`,
+      file,
+      false,
+      true
+    ));
+  });
+
+  uploadDir.innerHTML = `<option value="">/</option>`;
+  data.directories.forEach(d => {
+    const o = document.createElement("option");
+    o.value = d;
+    o.textContent = d;
+    uploadDir.appendChild(o);
+  });
+
+  lucide.createIcons();
+}
+
+function backRow(href) {
+  const li = document.createElement("li");
+  li.className = "px-5 py-3 hover:bg-hover";
+  li.innerHTML = `<a href="${href}" class="text-muted"><i data-lucide="move-left" class="w-4 h-4"></i></a>`;
+  return li;
+}
+
+function row(icon, name, href, key, isDir=false, ext=false) {
+  const li = document.createElement("li");
+  li.className = "group flex items-center gap-3 px-5 py-3 hover:bg-hover";
+
+  li.innerHTML = `
+    <i data-lucide="${icon}" class="w-4 h-4 text-muted"></i>
+
+    <a href="${href}" ${ext?'target="_blank"':''}
+      class="truncate text-sm flex-1">${name}</a>
+
+    <!-- MOVE -->
+    <button 
+      class="opacity-0 group-hover:opacity-100 text-blue-400 hover:text-blue-300 transition mr-2"
+      title="Move"
+      onclick="moveItem('${key}', ${isDir})">
+      <i data-lucide="arrow-right-left" class="w-4 h-4"></i>
+    </button>
+
+    <!-- DELETE -->
+    <button 
+      class="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition"
+      title="Delete"
+      onclick="deleteItem('${key}', ${isDir})">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+    </button>
+  `;
+  return li;
+}
+
+function renderBreadcrumb(path) {
+  if (!path) return `<span class="text-muted"></span>`;
+  let acc = "";
+  return `<a href="/"></a>` + path.split("/").map(p => {
+    acc = acc ? `${acc}/${p}` : p;
+    return `<a href="?path=${acc}">/${p}</a>`;
+  }).join("");
+}
+
+fetchList().then(render);
+
+/* Create folder */
+createDir.onclick = async () => {
+  if (!newDir.value.trim()) return;
+  await fetch(`${API_BASE}/api/mkdir`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ directory: prefix ? `${prefix}/${newDir.value}` : newDir.value })
+  });
+  newDir.value = "";
+  fetchList().then(render);
+};
+
+/* ---------------- DELETE ---------------- */
+
+async function deleteItem(key, isDir) {
+  const name = key.split("/").pop();
+  const ok = confirm(`Delete ${isDir ? "folder" : "file"} "${name}"?\n\nThis cannot be undone.`);
+  if (!ok) return;
+
+  await fetch(`${API_BASE}/api/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, isDir })
+  });
+
+  fetchList().then(render);
+}
+
+/* ---------------- MOVE ---------------- */
+
+
+function renderMove(data) {
+  moveList.innerHTML = "";
+
+  // Back row
+  if (movePath) {
+    const parent = movePath.split("/").slice(0, -1).join("/");
+    const li = document.createElement("li");
+    li.className = "px-4 py-3 hover:bg-hover cursor-pointer text-muted";
+    li.innerHTML = "← ..";
+    li.onclick = () => openMoveBrowser(parent);
+    moveList.appendChild(li);
+  }
+
+  // -------- FOLDERS (clickable) --------
+  data.directories.forEach(dir => {
+    const clean = dir.replace(/\/$/, "");
+    const name = clean.split("/").pop();
+
+    const li = document.createElement("li");
+    li.className = "flex items-center gap-3 px-4 py-3 hover:bg-hover cursor-pointer";
+
+    li.innerHTML = `
+      <i data-lucide="folder" class="w-4 h-4 text-muted"></i>
+      <span class="truncate">${name}</span>
+    `;
+
+    li.onclick = () => openMoveBrowser(clean);
+    moveList.appendChild(li);
+  });
+
+  // -------- FILES (visible but disabled) --------
+  data.files.forEach(file => {
+    const name = file.split("/").pop();
+
+    const li = document.createElement("li");
+    li.className = "flex items-center gap-3 px-4 py-3 opacity-40 cursor-not-allowed";
+
+    li.innerHTML = `
+      <i data-lucide="file" class="w-4 h-4 text-muted"></i>
+      <span class="truncate">${name}</span>
+    `;
+
+    moveList.appendChild(li);
+  });
+
+  // Update breadcrumb + label
+  moveBreadcrumb.innerHTML = renderBreadcrumb(movePath);
+  moveDestLabel.textContent = `Destination: /${movePath || ""}`;
+
+  lucide.createIcons();
+}
+
+
+async function openMoveBrowser(path) {
+  movePath = path;
+  const data = await fetchDirsForMove(movePath);
+  renderMove(data);
+}
+
+
+async function moveItem(key, isDir) {
+  const name = key.split("/").pop();
+
+  moving = { key, isDir, name };
+  movePath = "";
+
+  moveItemName.textContent = name;
+  moveOverlay.classList.remove("hidden");
+
+  openMoveBrowser("");
+}
+
+confirmMove.onclick = async () => {
+  if (!moving) return;
+
+  const from = moving.key;
+  const name = moving.name;
+  const dest = movePath ? `${movePath}/${name}` : name;
+
+  // UI safety: block moving folder into itself (early)
+  if (moving.isDir && (dest === from || dest.startsWith(from + "/"))) {
+    alert("You cannot move a folder into itself or one of its subfolders.");
+    return;
+  }
+
+  await fetch(`${API_BASE}/api/move`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from,
+      to: dest,
+      isDir: moving.isDir
+    })
+  });
+
+  moveOverlay.classList.add("hidden");
+  moving = null;
+
+  fetchList().then(render);
+};
+
+cancelMove.onclick = () => {
+  moveOverlay.classList.add("hidden");
+  moving = null;
+};
+
+moveOverlay.onclick = e => {
+  if (e.target === moveOverlay) cancelMove.onclick();
+};
+
+
+/* ---------------- UPLOAD SYSTEM ---------------- */
+
+openUpload.onclick = () => uploadOverlay.classList.remove("hidden");
+closeUpload.onclick = () => uploadOverlay.classList.add("hidden");
+
+uploadOverlay.onclick = e => {
+  if (e.target === uploadOverlay) closeUpload.onclick();
+};
+
+const dropZone = uploadOverlay.querySelector(".border-dashed");
+
+async function uploadNow(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("directory", uploadDir.value || prefix);
+
+  await fetch(`${API_BASE}/api/upload`, { method: "POST", body: fd });
+
+  fileInput.value = "";
+  closeUpload.onclick();
+  fetchList().then(render);
+}
+
+uploadOverlay.addEventListener("dragover", e => {
+  e.preventDefault();
+  dropZone.classList.add("border-accent");
+});
+
+uploadOverlay.addEventListener("dragleave", () => {
+  dropZone.classList.remove("border-accent");
+});
+
+uploadOverlay.addEventListener("drop", async e => {
+  e.preventDefault();
+  dropZone.classList.remove("border-accent");
+
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+
+  await uploadNow(file);
+});
+
+dropZone.onclick = () => fileInput.click();
+
+fileInput.onchange = async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  await uploadNow(file);
+};
+</script>
+
+
+
+</body>
+</html>
