@@ -19,8 +19,7 @@ function isBlocked(key: string): boolean {
 }
 
 function requireAccess(request: Request, env: Env) {
-	console.log("INSIDE REQ ACCESS, ENV IS : ", env.ENV);
-	if (env.ENV === "dum") {
+	if (env.AUTH_STATUS === "dev") {
 		console.log("DEV MODE – skipping Access");
 		return;
 	}
@@ -80,8 +79,8 @@ export default class extends WorkerEntrypoint<Env> {
 
 		const url = new URL(request.url);
 		const { pathname, searchParams } = url;
+    const origin = new URL(request.url).origin;
 
-		console.log("ENV =", env.ENV);
 		console.log("HIT", request.method, pathname);
 
 		/* -------------------- CORS preflight -------------------- */
@@ -111,12 +110,13 @@ export default class extends WorkerEntrypoint<Env> {
 
 			let html = await obj.text();
 
+
+
 			const inject = `
       <script>
         window.CONFIG = {
-          ENV: "${env.ENV}",
-          CDN_BASE: "${env.CDN_BASE}",
-          API_BASE: "${env.API_BASE}"
+          AUTH_STATUS: "${env.AUTH_STATUS}",
+          API_BASE: "${origin}",
         };
       </script>
       `;
@@ -131,6 +131,10 @@ export default class extends WorkerEntrypoint<Env> {
 				},
 			});
 		}
+
+    if (pathname==="/config/origin"){
+      return Response.json({origin, status:200},{status:200})
+    }
 
 		/* -------------------- List files -------------------- */
 		if (pathname === "/api/list") {
@@ -290,9 +294,8 @@ export default class extends WorkerEntrypoint<Env> {
 		if (pathname === "/config") {
 			return Response.json(
 				{
-					ENV: env.ENV,
-					API_BASE: env.API_BASE,
-					CDN_BASE: env.CDN_BASE,
+					AUTH_STATUS: env.AUTH_STATUS,
+					API_BASE: origin,
 				},
 				{ headers: corsHeaders },
 			);
@@ -310,6 +313,11 @@ export default class extends WorkerEntrypoint<Env> {
 				{ headers: corsHeaders },
 			);
 		}
+
+    if (pathname === '/setup-access'){
+      return Response.redirect('https://github.com/aditya-baindur/r2-list/blob/main/docs/Access.md')
+    }
+
 
 		/* -------------------- OBSERVABILITY -------------------- */
 		if (pathname === "/api/obs/summary") {

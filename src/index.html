@@ -205,13 +205,8 @@
       </div>
 
       <script>
-const { CDN_BASE, API_BASE, ENV } = window.CONFIG;
 
-
-
-console.log("ENV IN HTML =", ENV);
-console.log("API =", API_BASE);
-console.log("CDN =", CDN_BASE);
+const { API_BASE, AUTH_STATUS  } = window.CONFIG;
 
 let moving = null;       // { key, isDir, name }
 let movePath = "";      // current browsing path
@@ -219,9 +214,64 @@ let movePath = "";      // current browsing path
 
 async function fetchDirsForMove(path="") {
   const apiPrefix = path ? `${path}/` : "";
-  const res = await fetch(`${API_BASE}/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
+  const res = await apiFetch(`${API_BASE}/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
   return res.json();
 }
+
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, opts);
+  if (res.status === 401) {
+    // Auth enabled but header missing or invalid
+    showAuthBanner(
+      "error",
+      "Authentication is enabled, but Cloudflare Access headers were not received. You are not authenticated.",
+      "/setup-access"
+    );
+    throw new Error("Unauthorized (Cloudflare Access)");
+  }
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`API error ${res.status}: ${txt}`);
+  }
+
+  return res;
+}
+
+
+function showAuthBanner(type, message, link = null) {
+  const banner = document.createElement("div");
+
+  banner.className =
+    "bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs flex items-center gap-2 mr-4";
+
+  banner.innerHTML = `
+    <i data-lucide="shield-alert" class="w-4 h-4 text-red-400"></i>
+    <span>${message}</span>
+    ${link ? `<a href="${link}" class="ml-3 text-red-400 hover:underline">Fix</a>` : ""}
+  `;
+
+  document.querySelector("header .flex-1").prepend(banner);
+  lucide.createIcons();
+}
+
+/* DEV MODE banner */
+if (window.CONFIG.AUTH_STATUS === "dev") {
+  const banner = document.createElement("div");
+  banner.className =
+    "bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-2 text-xs flex items-center gap-2 mr-4";
+
+  banner.innerHTML = `
+    <i data-lucide="shield-alert" class="w-4 h-4 text-yellow-500"></i>
+    <span>Authentication disabled (DEV MODE)</span>
+    <a href="/setup-access" class="ml-3 text-yellow-400 hover:underline">Enable Access</a>
+  `;
+
+  document.querySelector("header .flex-1").prepend(banner);
+  lucide.createIcons();
+}
+
+
 
 
 
@@ -234,7 +284,7 @@ breadcrumb.innerHTML = renderBreadcrumb(prefix);
 
 async function fetchList() {
   const apiPrefix = prefix ? `${prefix}/` : "";
-  const res = await fetch(`${API_BASE}/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
+  const res = await apiFetch(`${API_BASE}/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
   return res.json();
 }
 
@@ -246,6 +296,18 @@ function render(data) {
     list.appendChild(backRow(parent ? `?path=${parent}` : "/"));
   }
 
+  if (!data || (!data.files.length && !data.directories.length)) {
+  if (window.CONFIG.AUTH_STATUS !== "dev") {
+    list.innerHTML = `
+      <li class="px-6 py-8 text-center text-muted">
+        No data visible. If you are sure files exist, you may not be authenticated via Cloudflare Access.
+      </li>
+    `;
+    return;
+  }
+}
+
+
   data.directories.forEach(dir => {
     const clean = dir.replace(/\/$/, "");
     list.appendChild(row("folder", clean.split("/").pop(), `?path=${clean}`, clean, true));
@@ -255,7 +317,7 @@ function render(data) {
     list.appendChild(row(
       "file",
       file.split("/").pop(),
-      `${CDN_BASE}/${decodeURIComponent(file)}`,
+      `${API_BASE}/${decodeURIComponent(file)}`,
       file,
       false,
       true
@@ -284,11 +346,23 @@ function row(icon, name, href, key, isDir=false, ext=false) {
   const li = document.createElement("li");
   li.className = "group flex items-center gap-3 px-5 py-3 hover:bg-hover";
 
+  const publicUrl = `${API_BASE}/${decodeURIComponent(key)}`;
+
   li.innerHTML = `
     <i data-lucide="${icon}" class="w-4 h-4 text-muted"></i>
 
     <a href="${href}" ${ext?'target="_blank"':''}
       class="truncate text-sm flex-1">${name}</a>
+
+    ${!isDir ? `
+    <!-- COPY -->
+    <button 
+      class="opacity-0 group-hover:opacity-100 text-muted hover:text-accent transition mr-2"
+      title="Copy URL"
+      onclick="copyUrl('${publicUrl}', this)">
+      <i data-lucide="copy" class="w-4 h-4"></i>
+    </button>
+    ` : ""}
 
     <!-- MOVE -->
     <button 
@@ -318,12 +392,39 @@ function renderBreadcrumb(path) {
   }).join("");
 }
 
+async function copyUrl(url, btn) {
+  try {
+    await navigator.clipboard.writeText(url);
+
+    const icon = btn.querySelector("i");
+    const old = icon.getAttribute("data-lucide");
+
+    // Visual feedback
+    icon.setAttribute("data-lucide", "check");
+    icon.classList.remove("text-muted");
+    icon.classList.add("text-green-400");
+
+    lucide.createIcons();
+
+    setTimeout(() => {
+      icon.setAttribute("data-lucide", old);
+      icon.classList.remove("text-green-400");
+      icon.classList.add("text-muted");
+      lucide.createIcons();
+    }, 900);
+
+  } catch (e) {
+    alert("Failed to copy URL");
+  }
+}
+
+
 fetchList().then(render);
 
 /* Create folder */
 createDir.onclick = async () => {
   if (!newDir.value.trim()) return;
-  await fetch(`${API_BASE}/api/mkdir`, {
+  await apiFetch(`${API_BASE}/api/mkdir`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ directory: prefix ? `${prefix}/${newDir.value}` : newDir.value })
@@ -339,7 +440,7 @@ async function deleteItem(key, isDir) {
   const ok = confirm(`Delete ${isDir ? "folder" : "file"} "${name}"?\n\nThis cannot be undone.`);
   if (!ok) return;
 
-  await fetch(`${API_BASE}/api/delete`, {
+  await apiFetch(`${API_BASE}/api/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key, isDir })
@@ -436,7 +537,7 @@ confirmMove.onclick = async () => {
     return;
   }
 
-  await fetch(`${API_BASE}/api/move`, {
+  await apiFetch(`${API_BASE}/api/move`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -478,7 +579,7 @@ async function uploadNow(file) {
   fd.append("file", file);
   fd.append("directory", uploadDir.value || prefix);
 
-  await fetch(`${API_BASE}/api/upload`, { method: "POST", body: fd });
+  await apiFetch(`${API_BASE}/api/upload`, { method: "POST", body: fd });
 
   fileInput.value = "";
   closeUpload.onclick();
@@ -531,7 +632,7 @@ closeObs.onclick = () => {
 
 async function refreshObs() {
   try {
-    const res = await fetch(`${API_BASE}/api/obs/summary`);
+    const res = await apiFetch(`${API_BASE}/api/obs/summary`);
     const data = await res.json();
 
     // Total

@@ -7,8 +7,7 @@ declare global {
 		R2: R2Bucket;
 		DB: D1Database;
 
-		ENV: string;
-		CDN_BASE: string;
+		AUTH_STATUS:string;
 		API_BASE: string;
 	}
 }

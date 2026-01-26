@@ -28,3 +28,6 @@ hp() {
   # Return to original dir
   cd "$ORIG"
 }
+
+
+alias d='pnpm run deploy'
