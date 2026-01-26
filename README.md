@@ -21,7 +21,9 @@
 
 ## Deployment
 
-### Automatic Deployment (New R2 Bucket)
+Automatic Deployment (New R2 Bucket)
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Aditya-Baindur/r2-list.git)
 
 Creates:
 
@@ -33,8 +35,6 @@ Creates:
 
 wrangler d1 create cdn-telem
 wrangler d1 migrations apply cdn-telem --remote
-
-
 
 ## Future upgarade
 

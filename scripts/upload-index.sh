@@ -4,12 +4,19 @@ set -e
 ROOT=$(git rev-parse --show-toplevel)
 SRC="$ROOT/src"
 FILE="$SRC/index.html"
+README="$ROOT/README.md"
 
-if [[ ! -f "$FILE" ]]; then
-  echo "index.html not found at $FILE"
+# Check both files exist
+if [[ ! -f "$FILE" || ! -f "$README" ]]; then
+  echo "Missing file(s):"
+  [[ ! -f "$FILE" ]] && echo "  - $FILE"
+  [[ ! -f "$README" ]] && echo "  - $README"
   exit 1
 fi
 
-echo "Uploading src/index.html to R2…"
+echo "Uploading files to R2…"
+
 wrangler r2 object put abc/index.html --file "$FILE" --remote
-echo "Uploaded index.html to R2"
+wrangler r2 object put abc/README.md --file "$README" --remote
+
+echo "Uploaded index.html and README.md to R2"
