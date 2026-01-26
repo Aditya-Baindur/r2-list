@@ -13,8 +13,8 @@
 	"r2_buckets": [
 		{
 			"binding": "R2",
-			// "bucket_name": "cdn-admin",
-			"bucket_name": "abc",
+			"bucket_name": "cdn-admin",
+			// "bucket_name": "abc",
 			"remote": true
 		}
 	],
