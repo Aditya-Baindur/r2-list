@@ -16,7 +16,7 @@ fi
 
 echo "Uploading files to R2…"
 
-wrangler r2 object put abc/index.html --file "$FILE" --remote
-wrangler r2 object put abc/README.md --file "$README" --remote
+wrangler r2 object put cdn-admin/index.html --file "$FILE" --remote
+wrangler r2 object put cdn-admin/README.md --file "$README" --remote
 
 echo "Uploaded index.html and README.md to R2"
