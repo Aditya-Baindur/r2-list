@@ -6,9 +6,9 @@ const NO_LIST_KEYS = new Set(["index.html"]);
 const NO_LIST_PREFIXES = [".", "_", "private/", "internal/"];
 
 const corsHeaders = {
-	"Access-Control-Allow-Origin": "*",
+	"Access-Control-Allow-Origin": origin,
 	"Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-	"Access-Control-Allow-Headers": "Content-Type",
+	"Access-Control-Allow-Headers": "Content-Type, Cf-Access-Jwt-Assertion",
 };
 
 /* -------------------- HELPERS -------------------- */
@@ -20,7 +20,6 @@ function isBlocked(key: string): boolean {
 
 function requireAccess(request: Request, env: Env) {
 	if (env.AUTH_STATUS === "dev") {
-		console.log("DEV MODE – skipping Access");
 		return;
 	}
 
@@ -79,9 +78,7 @@ export default class extends WorkerEntrypoint<Env> {
 
 		const url = new URL(request.url);
 		const { pathname, searchParams } = url;
-    const origin = new URL(request.url).origin;
-
-		console.log("HIT", request.method, pathname);
+		const origin = new URL(request.url).origin;
 
 		/* -------------------- CORS preflight -------------------- */
 		if (request.method === "OPTIONS") {
@@ -89,17 +86,20 @@ export default class extends WorkerEntrypoint<Env> {
 		}
 
 		/* -------------------- Access protection -------------------- */
-		if (pathname.startsWith("/api/")) {
+		if (pathname.startsWith("/admin/api/")) {
 			try {
-				console.log("ASKING ACCESS");
 				requireAccess(request, env);
 			} catch (res) {
 				return res as Response;
 			}
 		}
 
-		/* -------------------- Root: serve index.html -------------------- */
 		if (pathname === "/") {
+			return Response.redirect(`${origin}/admin`, 302);
+		}
+
+		/* -------------------- Root: serve index.html -------------------- */
+		if (pathname === "/admin") {
 			const obj = await env.R2.get("index.html");
 			if (!obj) {
 				return new Response("index.html missing", {
@@ -109,8 +109,6 @@ export default class extends WorkerEntrypoint<Env> {
 			}
 
 			let html = await obj.text();
-
-
 
 			const inject = `
       <script>
@@ -132,12 +130,12 @@ export default class extends WorkerEntrypoint<Env> {
 			});
 		}
 
-    if (pathname==="/config/origin"){
-      return Response.json({origin, status:200},{status:200})
-    }
+		if (pathname === "/admin/config/origin") {
+			return Response.json({ origin, status: 200 }, { status: 200 });
+		}
 
 		/* -------------------- List files -------------------- */
-		if (pathname === "/api/list") {
+		if (pathname === "/admin/api/list") {
 			let prefix = searchParams.get("prefix") || "";
 			if (prefix && !prefix.endsWith("/")) prefix += "/";
 
@@ -157,7 +155,7 @@ export default class extends WorkerEntrypoint<Env> {
 		}
 
 		/* -------------------- Upload file -------------------- */
-		if (pathname === "/api/upload" && request.method === "POST") {
+		if (pathname === "/admin/api/upload" && request.method === "POST") {
 			const formData = await request.formData();
 			const file = formData.get("file") as File | null;
 			const dir = formData.get("directory")?.toString() || "";
@@ -168,15 +166,13 @@ export default class extends WorkerEntrypoint<Env> {
 
 			const key = dir ? `${dir.replace(/\/?$/, "/")}${file.name}` : file.name;
 
-			console.log("UPLOAD:", key);
-
 			await env.R2.put(key, file.stream());
 
 			return Response.json({ success: true, key }, { headers: corsHeaders });
 		}
 
 		/* -------------------- Create directory -------------------- */
-		if (pathname === "/api/mkdir" && request.method === "POST") {
+		if (pathname === "/admin/api/mkdir" && request.method === "POST") {
 			const { directory } = (await request.json()) as { directory?: string };
 
 			if (!directory) {
@@ -185,22 +181,18 @@ export default class extends WorkerEntrypoint<Env> {
 
 			const key = directory.replace(/\/?$/, "/.placeholder");
 
-			console.log("MKDIR:", key);
-
 			await env.R2.put(key, "");
 
 			return Response.json({ success: true, directory }, { headers: corsHeaders });
 		}
 
 		/* -------------------- Delete file / directory -------------------- */
-		if (pathname === "/api/delete" && request.method === "POST") {
+		if (pathname === "/admin/api/delete" && request.method === "POST") {
 			const { key, isDir } = (await request.json()) as { key?: string; isDir?: boolean };
 
 			if (!key) {
 				return Response.json({ error: "No key" }, { status: 400, headers: corsHeaders });
 			}
-
-			console.log("DELETE:", key, "dir?", isDir);
 
 			if (isDir) {
 				// Delete all objects under this prefix
@@ -224,7 +216,7 @@ export default class extends WorkerEntrypoint<Env> {
 		}
 
 		/* -------------------- Move file / directory -------------------- */
-		if (pathname === "/api/move" && request.method === "POST") {
+		if (pathname === "/admin/api/move" && request.method === "POST") {
 			const { from, to, isDir } = (await request.json()) as {
 				from?: string;
 				to?: string;
@@ -253,8 +245,6 @@ export default class extends WorkerEntrypoint<Env> {
 					{ status: 400, headers: corsHeaders },
 				);
 			}
-
-			console.log("MOVE:", from, "→", to, "dir?", isDir);
 
 			if (isDir) {
 				// Move directory recursively
@@ -291,7 +281,7 @@ export default class extends WorkerEntrypoint<Env> {
 			}
 		}
 
-		if (pathname === "/config") {
+		if (pathname === "/admin/config") {
 			return Response.json(
 				{
 					AUTH_STATUS: env.AUTH_STATUS,
@@ -302,7 +292,7 @@ export default class extends WorkerEntrypoint<Env> {
 		}
 
 		/* -------------------- List files -------------------- */
-		if (pathname === "/config/list") {
+		if (pathname === "/admin/config/list") {
 			const { files, directories } = await walkR2(env, "");
 
 			return Response.json(
@@ -314,13 +304,14 @@ export default class extends WorkerEntrypoint<Env> {
 			);
 		}
 
-    if (pathname === '/setup-access'){
-      return Response.redirect('https://github.com/aditya-baindur/r2-list/blob/main/docs/Access.md')
-    }
-
+		if (pathname === "/admin/setup-access") {
+			return Response.redirect(
+				"https://github.com/aditya-baindur/r2-list/blob/main/docs/Access.md",
+			);
+		}
 
 		/* -------------------- OBSERVABILITY -------------------- */
-		if (pathname === "/api/obs/summary") {
+		if (pathname === "/admin/api/obs/summary") {
 			// Top files by count
 			const topFiles = await env.DB.prepare(
 				`
@@ -363,7 +354,7 @@ export default class extends WorkerEntrypoint<Env> {
 
 		const key = pathname.replace(/^\/+/, "");
 
-		if (key && !pathname.startsWith("/api/")) {
+		if (key && !pathname.startsWith("/admin/api/")) {
 			// Block admin / internal paths if needed
 			if (isBlocked(key)) {
 				return new Response("Forbidden", { status: 403, headers: corsHeaders });

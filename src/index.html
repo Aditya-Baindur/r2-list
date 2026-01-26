@@ -214,7 +214,7 @@ let movePath = "";      // current browsing path
 
 async function fetchDirsForMove(path="") {
   const apiPrefix = path ? `${path}/` : "";
-  const res = await apiFetch(`${API_BASE}/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
+  const res = await apiFetch(`${API_BASE}/admin/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
   return res.json();
 }
 
@@ -225,7 +225,7 @@ async function apiFetch(url, opts = {}) {
     showAuthBanner(
       "error",
       "Authentication is enabled, but Cloudflare Access headers were not received. You are not authenticated.",
-      "/setup-access"
+      "/admin/setup-access"
     );
     throw new Error("Unauthorized (Cloudflare Access)");
   }
@@ -264,7 +264,7 @@ if (window.CONFIG.AUTH_STATUS === "dev") {
   banner.innerHTML = `
     <i data-lucide="shield-alert" class="w-4 h-4 text-yellow-500"></i>
     <span>Authentication disabled (DEV MODE)</span>
-    <a href="/setup-access" class="ml-3 text-yellow-400 hover:underline">Enable Access</a>
+    <a href="/admin/setup-access" class="ml-3 text-yellow-400 hover:underline">Enable Access</a>
   `;
 
   document.querySelector("header .flex-1").prepend(banner);
@@ -284,7 +284,7 @@ breadcrumb.innerHTML = renderBreadcrumb(prefix);
 
 async function fetchList() {
   const apiPrefix = prefix ? `${prefix}/` : "";
-  const res = await apiFetch(`${API_BASE}/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
+  const res = await apiFetch(`${API_BASE}/admin/api/list?prefix=${encodeURIComponent(apiPrefix)}`);
   return res.json();
 }
 
@@ -352,7 +352,10 @@ function row(icon, name, href, key, isDir=false, ext=false) {
     <i data-lucide="${icon}" class="w-4 h-4 text-muted"></i>
 
     <a href="${href}" ${ext?'target="_blank"':''}
-      class="truncate text-sm flex-1">${name}</a>
+      class="truncate text-sm flex-1 hover:underline underline-offset-4 decoration-muted">
+      ${name}
+    </a>
+
 
     ${!isDir ? `
     <!-- COPY -->
@@ -393,29 +396,35 @@ function renderBreadcrumb(path) {
 }
 
 async function copyUrl(url, btn) {
+  // Lucide replaces <i> with <svg>, so we must handle both
+  const icon = btn.querySelector("svg, i");
+  if (!icon) return; // safety
+
+  const old = icon.getAttribute("data-lucide");
+
   try {
     await navigator.clipboard.writeText(url);
-
-    const icon = btn.querySelector("i");
-    const old = icon.getAttribute("data-lucide");
-
-    // Visual feedback
-    icon.setAttribute("data-lucide", "check");
-    icon.classList.remove("text-muted");
-    icon.classList.add("text-green-400");
-
-    lucide.createIcons();
-
-    setTimeout(() => {
-      icon.setAttribute("data-lucide", old);
-      icon.classList.remove("text-green-400");
-      icon.classList.add("text-muted");
-      lucide.createIcons();
-    }, 900);
-
   } catch (e) {
-    alert("Failed to copy URL");
+    // Ignore — browsers often reject but still copy
+    console.warn("Clipboard API rejected, but copy likely succeeded:", e);
   }
+
+  // Swap to check icon
+  icon.setAttribute("data-lucide", "check");
+  icon.classList.remove("text-muted");
+  icon.classList.add("text-green-400");
+  lucide.createIcons();
+
+  setTimeout(() => {
+    // Re-query because Lucide replaced the node again
+    const newIcon = btn.querySelector("svg, i");
+    if (!newIcon) return;
+
+    newIcon.setAttribute("data-lucide", old);
+    newIcon.classList.remove("text-green-400");
+    newIcon.classList.add("text-muted");
+    lucide.createIcons();
+  }, 900);
 }
 
 
@@ -424,7 +433,7 @@ fetchList().then(render);
 /* Create folder */
 createDir.onclick = async () => {
   if (!newDir.value.trim()) return;
-  await apiFetch(`${API_BASE}/api/mkdir`, {
+  await apiFetch(`${API_BASE}/admin/api/mkdir`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ directory: prefix ? `${prefix}/${newDir.value}` : newDir.value })
@@ -440,7 +449,7 @@ async function deleteItem(key, isDir) {
   const ok = confirm(`Delete ${isDir ? "folder" : "file"} "${name}"?\n\nThis cannot be undone.`);
   if (!ok) return;
 
-  await apiFetch(`${API_BASE}/api/delete`, {
+  await apiFetch(`${API_BASE}/admin/api/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key, isDir })
@@ -537,7 +546,7 @@ confirmMove.onclick = async () => {
     return;
   }
 
-  await apiFetch(`${API_BASE}/api/move`, {
+  await apiFetch(`${API_BASE}/admin/api/move`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -579,7 +588,7 @@ async function uploadNow(file) {
   fd.append("file", file);
   fd.append("directory", uploadDir.value || prefix);
 
-  await apiFetch(`${API_BASE}/api/upload`, { method: "POST", body: fd });
+  await apiFetch(`${API_BASE}/admin/api/upload`, { method: "POST", body: fd });
 
   fileInput.value = "";
   closeUpload.onclick();
@@ -632,7 +641,7 @@ closeObs.onclick = () => {
 
 async function refreshObs() {
   try {
-    const res = await apiFetch(`${API_BASE}/api/obs/summary`);
+    const res = await apiFetch(`${API_BASE}/admin/api/obs/summary`);
     const data = await res.json();
 
     // Total

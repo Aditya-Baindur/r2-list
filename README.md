@@ -21,7 +21,7 @@
 
 ## Deployment
 
-### Automatic Deployment (New R2 Bucket) :
+### Automatic Deployment (New R2 Bucket)
 
 Creates:
 
@@ -29,9 +29,15 @@ Creates:
 - D1 telemetry database
 - Worker bindings
 
-## Manual Deployment :
+## Manual Deployment:
 
-```bash
 wrangler d1 create cdn-telem
 wrangler d1 migrations apply cdn-telem --remote
-```
+
+
+
+## Future upgarade
+
+- Adding file based Auth
+- Added folder based Auth
+-

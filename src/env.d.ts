@@ -7,7 +7,7 @@ declare global {
 		R2: R2Bucket;
 		DB: D1Database;
 
-		AUTH_STATUS:string;
+		AUTH_STATUS: string;
 		API_BASE: string;
 	}
 }

@@ -2,12 +2,32 @@
 	"name": "cdn-list",
 	"version": "0.0.0",
 	"private": true,
+	"cloudflare": {
+		"label": "CDN List / R2 Admin",
+		"products": [
+			"Workers",
+			"D1",
+			"R2"
+		],
+		"categories": [],
+		"docs_url": "https://developers.cloudflare.com/workers/",
+		"publish": false,
+		"bindings": {
+			"AUTH_STATUS": {
+				"description": "**dev** disables authentication. Use **prod** to enforce Cloudflare Access.\n\nWhen set to `prod`, requests must include a valid `Cf-Access-Jwt-Assertion` header.\n\nSee: https://github.com/Aditya-Baindur/r2-list/blob/main/docs/Access.md"
+			}
+		}
+	},
 	"scripts": {
-		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
-		"start": "wrangler dev",
-		"test": "vitest",
+		"start": "npm run dev",
+		"deploy": "npm run db:migrate && wrangler deploy && npm run r2:upload",
+		"preview": "wrangler dev",
+		"db:migrate": "wrangler d1 migrations apply DB --remote",
+		"r2:upload": "bash scripts/upload-index.sh",
 		"cf-typegen": "wrangler types",
+		"check": "npm run cf-typegen && wrangler deploy --dry-run",
+		"test": "vitest",
 		"format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,html,css,md}\""
 	},
 	"devDependencies": {
@@ -19,5 +39,8 @@
 	},
 	"dependencies": {
 		"terraform": "^1.23.0"
+	},
+	"engines": {
+		"node": ">=22"
 	}
 }
