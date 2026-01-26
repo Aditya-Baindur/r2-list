@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "cdn-admin",
+	"name": "cdn-list",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-09-27",
 	"assets": {
@@ -13,6 +13,7 @@
 	"r2_buckets": [
 		{
 			"binding": "R2",
+			// "bucket_name": "cdn-admin",
 			"bucket_name": "abc",
 			"remote": true
 		}

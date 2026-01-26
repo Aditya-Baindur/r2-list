@@ -3,12 +3,12 @@
 export {};
 
 declare global {
-  interface Env {
-    R2: R2Bucket;
-    DB: D1Database;
+	interface Env {
+		R2: R2Bucket;
+		DB: D1Database;
 
-    ENV: string;
-    CDN_BASE: string;
-    API_BASE: string;
-  }
+		ENV: string;
+		CDN_BASE: string;
+		API_BASE: string;
+	}
 }

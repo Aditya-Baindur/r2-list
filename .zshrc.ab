@@ -1,3 +1,5 @@
+export QF_RECURSIVE_OK=1
+
 hp() {
   local ORIG="$PWD"
 
