@@ -2,7 +2,9 @@
   <img src="src/favicon/favicon.svg" width="96" />
 </p>
 
-<h1 align="center">CDN Admin</h1>
+<a href="https://adityabaindur.dev/r2">
+  <h1 align="center">CDN Admin</h1>
+</a>
 
 <h2 align="center">
   A lightweight complete Cloudflare R2 dashboard for managing CDN buckets, files, and telemetry.
