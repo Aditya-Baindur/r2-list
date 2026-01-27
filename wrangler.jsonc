@@ -13,7 +13,7 @@
 	"r2_buckets": [
 		{
 			"binding": "R2",
-			"bucket_name": "cdn-admin",
+			"bucket_name": "cdn",
 			// "bucket_name": "abc",
 			"remote": true
 		}
@@ -25,10 +25,13 @@
 		{
 			"binding": "DB",
 			"database_name": "cdn-telem",
-			"database_id": "8164c245-5b7d-4417-97b1-7a877c1bd15b",
+			"database_id": "beb4d644-22e6-4985-91ee-11305ae5e509",
 			"remote": true
 		}
 	],
+	"vars": {
+		"AUTH_STATUS": "dev"
+	},
 	"preview_urls": true,
 	"workers_dev": true
 }

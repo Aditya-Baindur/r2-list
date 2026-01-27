@@ -697,6 +697,61 @@ setInterval(() => {
 }, 5000);
 
 
+/* ---------------- GLOBAL DRAG & DROP ---------------- */
+
+let globalDragCounter = 0;
+
+// When user drags *any* file into the window
+window.addEventListener("dragenter", e => {
+  e.preventDefault();
+  globalDragCounter++;
+
+  // Only react to file drags
+  if (!e.dataTransfer.types.includes("Files")) return;
+
+  uploadOverlay.classList.remove("hidden");
+  dropZone.classList.add("border-accent");
+});
+
+window.addEventListener("dragover", e => {
+  e.preventDefault();
+});
+
+// When drag leaves window entirely
+window.addEventListener("dragleave", e => {
+  globalDragCounter--;
+
+  if (globalDragCounter <= 0) {
+    dropZone.classList.remove("border-accent");
+    uploadOverlay.classList.add("hidden");
+    globalDragCounter = 0;
+  }
+});
+
+// Drop anywhere on screen
+window.addEventListener("drop", async e => {
+  e.preventDefault();
+  globalDragCounter = 0;
+
+  dropZone.classList.remove("border-accent");
+
+  const file = e.dataTransfer.files[0];
+  if (!file) {
+    uploadOverlay.classList.add("hidden");
+    return;
+  }
+
+  // Show overlay briefly so user sees feedback
+  uploadOverlay.classList.remove("hidden");
+
+  try {
+    await uploadNow(file);
+  } finally {
+    uploadOverlay.classList.add("hidden");
+  }
+});
+
+
 
 </script>
 

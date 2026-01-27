@@ -86,14 +86,15 @@ export default class extends WorkerEntrypoint<Env> {
 		}
 
 		/* -------------------- Access protection -------------------- */
-		if (pathname.startsWith("/admin/api/")) {
+		if (pathname.startsWith("/admin/api/") || pathname.startsWith("/admin/config/")) {
 			try {
 				requireAccess(request, env);
 			} catch (res) {
 				return res as Response;
 			}
 		}
-
+		
+		/* -------------------- Route base to /admin -------------------- */
 		if (pathname === "/") {
 			return Response.redirect(`${origin}/admin`, 302);
 		}
@@ -130,10 +131,6 @@ export default class extends WorkerEntrypoint<Env> {
 			});
 		}
 
-		if (pathname === "/admin/config/origin") {
-			return Response.json({ origin, status: 200 }, { status: 200 });
-		}
-
 		/* -------------------- List files -------------------- */
 		if (pathname === "/admin/api/list") {
 			let prefix = searchParams.get("prefix") || "";
@@ -156,20 +153,28 @@ export default class extends WorkerEntrypoint<Env> {
 
 		/* -------------------- Upload file -------------------- */
 		if (pathname === "/admin/api/upload" && request.method === "POST") {
-			const formData = await request.formData();
-			const file = formData.get("file") as File | null;
-			const dir = formData.get("directory")?.toString() || "";
+		const formData = await request.formData();
+		const file = formData.get("file") as File | null;
+		const dir = formData.get("directory")?.toString() || "";
 
-			if (!file) {
-				return Response.json({ error: "No file" }, { status: 400, headers: corsHeaders });
-			}
-
-			const key = dir ? `${dir.replace(/\/?$/, "/")}${file.name}` : file.name;
-
-			await env.R2.put(key, file.stream());
-
-			return Response.json({ success: true, key }, { headers: corsHeaders });
+		if (!file) {
+			return Response.json({ error: "No file" }, { status: 400, headers: corsHeaders });
 		}
+
+		const safeName = file.name
+			.trim()
+			.replace(/\s+/g, "-")        // spaces → -
+			.replace(/-+/g, "-");        // collapse multiple -
+
+		const key = dir
+			? `${dir.replace(/\/?$/, "/")}${safeName}`
+			: safeName;
+
+		await env.R2.put(key, file.stream());
+
+		return Response.json({ success: true, key }, { headers: corsHeaders });
+		}
+
 
 		/* -------------------- Create directory -------------------- */
 		if (pathname === "/admin/api/mkdir" && request.method === "POST") {
@@ -281,35 +286,6 @@ export default class extends WorkerEntrypoint<Env> {
 			}
 		}
 
-		if (pathname === "/admin/config") {
-			return Response.json(
-				{
-					AUTH_STATUS: env.AUTH_STATUS,
-					API_BASE: origin,
-				},
-				{ headers: corsHeaders },
-			);
-		}
-
-		/* -------------------- List files -------------------- */
-		if (pathname === "/admin/config/list") {
-			const { files, directories } = await walkR2(env, "");
-
-			return Response.json(
-				{
-					files: files.sort(),
-					directories: directories.sort(),
-				},
-				{ headers: corsHeaders },
-			);
-		}
-
-		if (pathname === "/admin/setup-access") {
-			return Response.redirect(
-				"https://github.com/aditya-baindur/r2-list/blob/main/docs/Access.md",
-			);
-		}
-
 		/* -------------------- OBSERVABILITY -------------------- */
 		if (pathname === "/admin/api/obs/summary") {
 			// Top files by count
@@ -350,9 +326,43 @@ export default class extends WorkerEntrypoint<Env> {
 			);
 		}
 
+		/* -------------------- CONFIGS -------------------- */
+		if (pathname === "/admin/config") {
+			return Response.json(
+				{
+					AUTH_STATUS: env.AUTH_STATUS,
+					API_BASE: origin,
+				},
+				{ headers: corsHeaders },
+			);
+		}
+
+		if (pathname === "/admin/config/origin") {
+			return Response.json({ origin, status: 200 }, { status: 200 });
+		}
+
+		if (pathname === "/admin/config/list") {
+			const { files, directories } = await walkR2(env, "");
+
+			return Response.json(
+				{
+					files: files.sort(),
+					directories: directories.sort(),
+				},
+				{ headers: corsHeaders },
+			);
+		}
+
+		if (pathname === "/admin/setup-access") {
+			return Response.redirect(
+				"https://github.com/aditya-baindur/r2-list/blob/main/docs/Access.md",
+			);
+		}
+
 		/* -------------------- CDN SERVE (everything else) -------------------- */
 
-		const key = pathname.replace(/^\/+/, "");
+		const rawKey = pathname.replace(/^\/+/, "");
+		const key = decodeURIComponent(rawKey);
 
 		if (key && !pathname.startsWith("/admin/api/")) {
 			// Block admin / internal paths if needed

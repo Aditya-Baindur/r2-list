@@ -23,7 +23,7 @@ hp() {
   fi
 
   echo "Uploading src/index.html to R2..."
-  wrangler r2 object put abc/index.html --file index.html --remote
+  wrangler r2 object put cdn/index.html --file index.html --remote
 
   # Return to original dir
   cd "$ORIG"
