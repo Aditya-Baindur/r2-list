@@ -6,9 +6,11 @@
   <h1 align="center">CDN Admin</h1>
 </a>
 
-<h2 align="center">
-  A lightweight complete Cloudflare R2 dashboard for managing CDN buckets, files, and telemetry.
-</h2>
+
+<h1 align="center">
+  <a href="https://adityabaindur.dev/r2">CDN Admin</a>
+</h1>
+
 
 <p align="center">
   <img src="https://img.shields.io/badge/Cloudflare%20Edge%20Platform-000000?logo=cloudflare&logoColor=F38020" />
