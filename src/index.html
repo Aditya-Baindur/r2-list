@@ -35,11 +35,24 @@
         <div class="max-w-5xl mx-auto px-6 py-3 flex items-center gap-6">
 
           <!-- LEFT: Logo + Breadcrumb -->
-          <div class="flex flex-col">
-            <a href="/" class="text-lg font-medium hover:underline">
-              CDN Admin
-            </a>
-            <div id="breadcrumb" class="text-sm text-muted mt-1"></div>
+          <div class="flex items-center gap-3">
+
+            <!-- Logo badge -->
+            <div
+              class="w-9 h-9 rounded-xl bg-accent/20 flex items-center justify-center">
+              <i data-lucide="cloud" class="w-5 h-5 text-accent"></i>
+              <a href="/"><img
+                  src=https://admin.cdn.adityabaindur.dev/adityabaindur.dev/cdn-logo-p.png
+                  className="w-5 h-5" alt /></a>
+            </div>
+
+            <div class="flex flex-col">
+              <a href="/" class="text-lg font-medium hover:underline">
+                CDN Admin
+              </a>
+              <div id="breadcrumb" class="text-sm text-muted mt-1"></div>
+            </div>
+
           </div>
 
           <!-- CENTER: Warning banner -->
@@ -59,7 +72,7 @@
           <div class="flex items-center gap-3">
             <button
               id="openObs"
-              class="bg-bg border border-line px-3 py-2 rounded text-sm hover:bg-hover flex items-center gap-2">
+              class="bg-bg border border-line px-3 py-2 rounded-2xl text-sm hover:bg-hover flex items-center gap-2">
               <i data-lucide="activity" class="w-4 h-4"></i>
               Observability
             </button>
@@ -68,22 +81,39 @@
         </div>
       </header>
 
-      <div class="max-w-5xl mx-auto px-6 py-4 flex flex-wrap gap-2">
+      <div
+        class="mx-auto max-w-5xl px-6 py-4 flex flex-wrap items-center gap-2">
+
+        <!-- GLOBAL SEARCH -->
+        <div
+          class="flex items-center gap-2 bg-card border border-line rounded-xl px-3 py-2 w-72">
+          <i data-lucide="search" class="w-4 h-4 text-muted"></i>
+          <input
+            id="globalSearch"
+            placeholder="Search entire bucket…"
+            class="bg-transparent outline-none text-sm w-full placeholder:text-muted" />
+        </div>
+
         <input id="newDir" placeholder="New folder"
-          class="bg-card border border-line rounded px-3 py-2 text-sm w-48" />
+          class="bg-card border border-line rounded-xl px-3 py-2 text-sm w-40" />
+
         <button id="createDir"
-          class="bg-accent px-4 py-2 rounded text-sm hover:opacity-90">
-          Create
+          class="bg-bg border border-line px-3 py-2 rounded-xl text-sm hover:bg-hover flex items-center gap-2">
+          <i data-lucide="folder-plus" class="w-4 h-4"></i>
+          New folder
         </button>
 
         <button id="openUpload"
-          class="ml-auto bg-green-500 px-4 py-2 rounded text-sm hover:opacity-90">
+          class="bg-accent px-4 py-2 rounded-xl text-sm hover:opacity-90 flex items-center gap-2">
+          <i data-lucide="upload" class="w-4 h-4"></i>
           Upload
         </button>
+
+        <div id="searchCount" class="ml-auto text-xs text-muted hidden"></div>
       </div>
 
       <main class="max-w-5xl mx-auto px-6 pb-16">
-        <div class="rounded-lg bg-card ring-1 ring-line overflow-hidden">
+        <div class="rounded-2xl bg-card ring-1 ring-line overflow-hidden">
           <ul id="list" class="divide-y divide-line"></ul>
         </div>
       </main>
@@ -93,7 +123,7 @@
         class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50">
 
         <div
-          class="relative border-2 border-dashed border-line rounded-xl w-[90vw] h-[60vh] max-w-3xl flex flex-col items-center justify-center text-center p-8 bg-card transition">
+          class="relative border-2 border-dashed border-line rounded-2xl w-[90vw] h-[60vh] max-w-3xl flex flex-col items-center justify-center text-center p-8 bg-card transition">
 
           <i data-lucide="upload-cloud" class="w-12 h-12 text-muted mb-4"></i>
           <p class="text-lg mb-1">Drop files here</p>
@@ -118,7 +148,7 @@
         class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50">
 
         <div
-          class="bg-card rounded-xl w-[90vw] max-w-4xl h-[70vh] flex shadow-xl overflow-hidden">
+          class="bg-card rounded-2xl w-[90vw] max-w-4xl h-[70vh] flex shadow-xl overflow-hidden">
 
           <!-- LEFT: Info -->
           <div class="w-64 border-r border-line p-4 flex flex-col">
@@ -182,7 +212,7 @@
         <div class="p-4 space-y-4 overflow-y-auto flex-1">
 
           <!-- Total -->
-          <div class="bg-bg border border-line rounded p-3">
+          <div class="bg-bg border border-line rounded-2xl p-3">
             <p class="text-xs text-muted">Total requests</p>
             <p id="obsTotal" class="text-2xl font-medium mt-1">0</p>
           </div>
@@ -210,6 +240,154 @@ const { API_BASE, AUTH_STATUS  } = window.CONFIG;
 
 let moving = null;       // { key, isDir, name }
 let movePath = "";      // current browsing path
+let currentData = null;
+let globalIndex = null;   // { files: [], directories: [] }
+let searching = false;
+
+
+async function loadGlobalIndex() {
+  if (globalIndex) return globalIndex;
+
+  const res = await apiFetch(`${API_BASE}/admin/config/list`);
+  const data = await res.json();
+
+  globalIndex = data;
+  return data;
+}
+
+/* ---------------- GLOBAL SEARCH ---------------- */
+
+const searchInput = document.getElementById("globalSearch");
+const searchCount = document.getElementById("searchCount");
+
+let searchTimer = null;
+
+if (searchInput) {
+  searchInput.addEventListener("input", () => {
+    const q = searchInput.value.trim().toLowerCase();
+
+    clearTimeout(searchTimer);
+
+    // debounce slightly so it feels smooth
+    searchTimer = setTimeout(async () => {
+      if (!q) {
+        searching = false;
+        searchCount.classList.add("hidden");
+        fetchList().then(render);
+        return;
+      }
+
+      searching = true;
+
+      // Load full index once
+      const index = await loadGlobalIndex();
+
+      const files = index.files.filter(f =>
+        f.split("/").pop().toLowerCase().includes(q)
+      );
+
+      const directories = index.directories.filter(d =>
+        d.split("/").pop().toLowerCase().includes(q)
+      );
+
+      // Render results as flat list
+      renderGlobalResults({ files, directories });
+
+      const total = files.length + directories.length;
+      searchCount.textContent = `${total} result${total === 1 ? "" : "s"}`;
+      searchCount.classList.remove("hidden");
+
+    }, 120);
+  });
+}
+
+function renderGlobalResults(data) {
+  list.innerHTML = "";
+
+  if (!data.files.length && !data.directories.length) {
+    list.innerHTML = `
+      <li class="px-6 py-8 text-center text-muted">
+        No matches found
+      </li>
+    `;
+    return;
+  }
+
+  // ----- FOLDERS FIRST -----
+  data.directories.forEach(dir => {
+    const clean = dir.replace(/\/$/, "");
+    const name = clean.split("/").pop();
+
+    const li = document.createElement("li");
+    li.className = "group flex items-center gap-3 px-5 py-3 hover:bg-hover rounded-xl";
+
+    li.innerHTML = `
+      <i data-lucide="folder" class="w-4 h-4 text-muted"></i>
+
+      <a href="?path=${clean}"
+        class="truncate text-sm flex-1 hover:underline underline-offset-4 decoration-muted">
+        ${name}
+      </a>
+
+      <a href="?path=${clean}"
+        onclick="exitSearch()"
+        class="text-xs text-muted ml-2 truncate hover:underline">
+        /${clean}
+      </a>
+
+    `;
+
+    list.appendChild(li);
+  });
+
+  // ----- FILES -----
+  data.files.forEach(file => {
+    const name = file.split("/").pop();
+    const publicUrl = `${API_BASE}/${decodeURIComponent(file)}`;
+    const parent = file.split("/").slice(0, -1).join("/");
+
+    const li = document.createElement("li");
+    li.className = "group flex items-center gap-3 px-5 py-3 hover:bg-hover rounded-xl";
+
+    li.innerHTML = `
+      <i data-lucide="file" class="w-4 h-4 text-muted"></i>
+
+      <a href="${publicUrl}" target="_blank"
+        class="truncate text-sm flex-1 hover:underline underline-offset-4 decoration-muted flex items-center gap-2">
+        ${name}
+        <i data-lucide="external-link" class="w-3.5 h-3.5 text-muted opacity-0 group-hover:opacity-100 transition"></i>
+      </a>
+
+      <a href="?path=${parent}"
+        onclick="exitSearch()"
+        class="text-xs text-muted ml-2 truncate hover:underline">
+        /${parent}
+      </a>
+
+
+      <!-- COPY -->
+      <button 
+        class="opacity-0 group-hover:opacity-100 text-muted hover:text-accent transition mr-2"
+        title="Copy URL"
+        onclick="copyUrl('${publicUrl}', this)">
+        <i data-lucide="copy" class="w-4 h-4"></i>
+      </button>
+    `;
+
+    list.appendChild(li);
+  });
+
+  lucide.createIcons();
+}
+
+
+if (searchInput) {
+  searchInput.value = "";
+  searching = false;
+  searchCount.classList.add("hidden");
+}
+
+
 
 
 async function fetchDirsForMove(path="") {
@@ -289,6 +467,7 @@ async function fetchList() {
 }
 
 function render(data) {
+  currentData = data;
   list.innerHTML = "";
 
   if (prefix) {
@@ -337,14 +516,14 @@ function render(data) {
 
 function backRow(href) {
   const li = document.createElement("li");
-  li.className = "px-5 py-3 hover:bg-hover";
+  li.className = "px-5 py-3 hover:bg-hover rounded-xl";
   li.innerHTML = `<a href="${href}" class="text-muted"><i data-lucide="move-left" class="w-4 h-4"></i></a>`;
   return li;
 }
 
 function row(icon, name, href, key, isDir=false, ext=false) {
   const li = document.createElement("li");
-  li.className = "group flex items-center gap-3 px-5 py-3 hover:bg-hover";
+  li.className = "group flex items-center gap-3 px-5 py-3 hover:bg-hover rounded-xl";
 
   const publicUrl = `${API_BASE}/${decodeURIComponent(key)}`;
 
@@ -394,6 +573,13 @@ function renderBreadcrumb(path) {
     return `<a href="?path=${acc}">/${p}</a>`;
   }).join("");
 }
+
+function exitSearch() {
+  searching = false;
+  searchInput.value = "";
+  searchCount.classList.add("hidden");
+}
+
 
 async function copyUrl(url, btn) {
   // Lucide replaces <i> with <svg>, so we must handle both
@@ -750,7 +936,6 @@ window.addEventListener("drop", async e => {
     uploadOverlay.classList.add("hidden");
   }
 });
-
 
 
 </script>

@@ -1,9 +1,6 @@
-export QF_RECURSIVE_OK=1
-
 hp() {
   local ORIG="$PWD"
 
-  # Find git repo root
   local ROOT
   ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
     echo "Not inside a git repo"
@@ -11,21 +8,38 @@ hp() {
   }
 
   local SRC="$ROOT/src"
+  local WRANGLER="$ROOT/wrangler.jsonc"
 
-  # Jump to src
   cd "$SRC" || { echo "Failed to cd to $SRC"; return 1; }
 
-  # Sanity check
   if [[ ! -f "index.html" ]]; then
     echo "index.html not found in $SRC"
     cd "$ORIG"
     return 1
   fi
 
-  echo "Uploading src/index.html to R2..."
-  wrangler r2 object put cdn/index.html --file index.html --remote
+  # Detect bucket
+  local BUCKET
+  BUCKET=$(
+    sed 's://.*$::' "$WRANGLER" |
+    sed 's:/\*.*\*/::g' |
+    tr -d '\n' |
+    grep -o '"bucket_name"[[:space:]]*:[[:space:]]*"[^"]*"' |
+    head -n1 |
+    sed 's/.*"bucket_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/'
+  )
 
-  # Return to original dir
+  if [[ -z "$BUCKET" ]]; then
+    echo "Could not detect R2 bucket from wrangler.jsonc"
+    cd "$ORIG"
+    return 1
+  fi
+
+  echo "Bucket: $BUCKET"
+  echo "Uploading index.html → R2"
+
+  wrangler r2 object put "$BUCKET/index.html" --file index.html --remote
+
   cd "$ORIG"
 }
 
