@@ -2,11 +2,6 @@
   <img src="src/favicon/favicon.svg" width="96" />
 </p>
 
-<a href="https://adityabaindur.dev/r2">
-  <h1 align="center">CDN Admin</h1>
-</a>
-
-
 <h1 align="center">
   <a href="https://adityabaindur.dev/r2">CDN Admin</a>
 </h1>
