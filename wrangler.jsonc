@@ -14,7 +14,6 @@
 		{
 			"binding": "R2",
 			"bucket_name": "cdn",
-			// "bucket_name": "abc",
 			"remote": true
 		}
 	],

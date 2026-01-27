@@ -1,34 +1,135 @@
-# Devtools
+# Developer Tooling & Workflow
 
+This project includes a small but powerful developer toolchain to make iteration fast and safe.
 
-In most of my projects, I usually write custom scripts to make developing much easier. 
+---
 
-In this project, I have in the package.json added preetier : 
+## Package Scripts
 
+From `package.json`:
 
-| col1 | col2 | col3 |
-| ---- | ---- | ---- |
-|      |      |      |
-|      |      |      |
+```json
+{
+  "deploy": "wrangler deploy",
+  "dev": "wrangler dev",
+  "start": "wrangler dev",
+  "test": "vitest",
+  "cf-typegen": "wrangler types",
+  "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,html,css,md}\""
+}
+```
 
+### Script Overview
 
-"deploy": "wrangler deploy",
+| Script       | Purpose                               |
+| ------------ | ------------------------------------- |
+| `deploy`     | Deploy Worker to production           |
+| `dev`        | Run local dev server                  |
+| `start`      | Alias for `dev`                       |
+| `test`       | Run test suite                        |
+| `cf-typegen` | Generate Cloudflare binding types     |
+| `format`     | Format all source files with Prettier |
 
-"dev": "wrangler dev",
+---
 
-"start": "wrangler dev",
+## Prettier
 
-"test": "vitest",
+Prettier is enabled to ensure:
 
-"cf-typegen": "wrangler types",
+* Consistent formatting
+* Clean diffs
+* Production‑quality readability
 
-"format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,html,css,md}\""
+Run manually:
 
+```bash
+pnpm run format
+```
 
-A custom cdn.sh script which can be used by running `source cdn.sh` and you can use the following commands in your terminal :
+---
 
+## Custom Shell Tools — `cdn.sh`
 
-| Command | Purpose                                       |
-| ------- | --------------------------------------------- |
-| d       | Runs pnpm run deploy                         |
-| hp      | Deploys the HTML code needed to the R2 bucket |
+A helper script is included to speed up common tasks.
+
+Enable it once per session:
+
+```bash
+source cdn.sh
+```
+
+### Available Commands
+
+| Command | Action                               |
+| ------- | ------------------------------------ |
+| `d`     | Runs `pnpm run deploy`               |
+| `hp`    | Uploads the HTML UI to the R2 bucket |
+
+---
+
+## Typical Workflow
+
+### Local Development
+
+```bash
+pnpm run dev
+```
+
+* Worker runs locally
+* UI served from R2
+* Auth bypassed with `AUTH_STATUS=dev`
+
+---
+
+### Deploy Backend
+
+```bash
+d
+```
+
+Deploys:
+
+* Worker code
+* Bindings
+* Environment config
+
+---
+
+### Upload Frontend
+
+```bash
+hp
+```
+
+Uploads:
+
+* `index.html`
+* UI assets
+
+---
+
+## Type Safety
+
+Run:
+
+```bash
+pnpm run cf-typegen
+```
+
+Generates:
+
+* R2 bindings
+* D1 bindings
+* Env type definitions
+
+---
+
+## Notes
+
+* No build step required
+* No framework lock‑in
+* Works on macOS, Linux, WSL
+
+---
+
+Happy hacking ⚡
