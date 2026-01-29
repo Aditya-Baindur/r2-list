@@ -131,6 +131,71 @@ export default class extends WorkerEntrypoint<Env> {
 			});
 		}
 
+		/* -------------------- Rename file / directory -------------------- */
+		if (pathname === "/admin/api/rename" && request.method === "POST") {
+		const { from, to, isDir } = (await request.json()) as {
+			from?: string;
+			to?: string;
+			isDir?: boolean;
+		};
+
+		if (!from || !to) {
+			return Response.json(
+			{ error: "Missing from/to" },
+			{ status: 400, headers: corsHeaders },
+			);
+		}
+
+		const cleanFrom = from.replace(/\/+$/, "");
+		const cleanTo = to.replace(/\/+$/, "");
+
+		if (cleanFrom === cleanTo) {
+			return Response.json(
+			{ error: "New name must be different" },
+			{ status: 400, headers: corsHeaders },
+			);
+		}
+
+		if (isDir) {
+			const fromPrefix = cleanFrom + "/";
+			const toPrefix = cleanTo + "/";
+
+			const listed = await env.R2.list({ prefix: fromPrefix });
+
+			for (const obj of listed.objects) {
+			const newKey = obj.key.replace(fromPrefix, toPrefix);
+
+			const data = await env.R2.get(obj.key);
+			if (data) {
+				await env.R2.put(newKey, data.body);
+				await env.R2.delete(obj.key);
+			}
+			}
+
+			return Response.json(
+			{ success: true, renamed: "directory", from, to },
+			{ headers: corsHeaders },
+			);
+		} else {
+			const data = await env.R2.get(from);
+			if (!data) {
+			return Response.json(
+				{ error: "File not found" },
+				{ status: 404, headers: corsHeaders },
+			);
+			}
+
+			await env.R2.put(to, data.body);
+			await env.R2.delete(from);
+
+			return Response.json(
+			{ success: true, renamed: "file", from, to },
+			{ headers: corsHeaders },
+			);
+		}
+		}
+
+
 		/* -------------------- List files -------------------- */
 		if (pathname === "/admin/api/list") {
 			let prefix = searchParams.get("prefix") || "";

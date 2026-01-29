@@ -29,10 +29,17 @@
 		}
 	],
 	"vars": {
-		"AUTH_STATUS": "dev"
+		"AUTH_STATUS": "prod"
 	},
 	"preview_urls": true,
-	"workers_dev": true
+	"workers_dev": true,
+	"routes": [
+		{
+			"pattern": "admin.cdn.adityabaindur.dev",
+			"zone_name": "adityabaindur.dev",
+			"custom_domain": true
+		}
+	]
 }
 /**
 	 * Smart Placement

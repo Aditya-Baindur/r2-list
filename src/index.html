@@ -388,6 +388,34 @@ if (searchInput) {
 }
 
 
+async function renameItem(key, isDir) {
+  const oldName = key.split("/").pop();
+  const parent = key.split("/").slice(0, -1).join("/");
+
+  const newName = prompt(`Rename ${isDir ? "folder" : "file"}:`, oldName);
+  if (!newName || newName === oldName) return;
+
+  // basic safety
+  if (newName.includes("/")) {
+    alert("Name cannot contain slashes (/)");
+    return;
+  }
+
+  const to = parent ? `${parent}/${newName}` : newName;
+
+  await apiFetch(`${API_BASE}/admin/api/rename`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: key,
+      to,
+      isDir
+    })
+  });
+
+  fetchList().then(render);
+}
+
 
 
 async function fetchDirsForMove(path="") {
@@ -537,6 +565,7 @@ function row(icon, name, href, key, isDir=false, ext=false) {
 
 
     ${!isDir ? `
+
     <!-- COPY -->
     <button 
       class="opacity-0 group-hover:opacity-100 text-muted hover:text-accent transition mr-2"
@@ -545,6 +574,14 @@ function row(icon, name, href, key, isDir=false, ext=false) {
       <i data-lucide="copy" class="w-4 h-4"></i>
     </button>
     ` : ""}
+
+          <!-- RENAME -->
+    <button 
+      class="opacity-0 group-hover:opacity-100 text-muted hover:text-accent transition mr-2"
+      title="Rename"
+      onclick="renameItem('${key}', ${isDir})">
+      <i data-lucide="pencil" class="w-4 h-4"></i>
+    </button>
 
     <!-- MOVE -->
     <button 
