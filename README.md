@@ -30,7 +30,7 @@
 
 <p align="center">
   <a href="https://adityabaindur.dev/r2">
-    <img src="./docs/assets/cdn-admin-demo.png" alt='cdn-admin-demo'/>
+    <img src="https://cdn.adityabaindur.dev/adityabaindur.dev/brands/r2-list/cdn-admin-demo.png" alt='cdn-admin-demo'/>
   </a>
 </p>
 <p align="center">
