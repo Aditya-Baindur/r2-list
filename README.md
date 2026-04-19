@@ -70,7 +70,7 @@ Cloudflare R2 is powerful, but day‑to‑day operations often require more than
 
 <p align="center">
   <a href="https://adityabaindur.dev/r2">
-    <img src="https://admin.cdn.adityabaindur.dev/adityabaindur.dev/r2-list/systems.png" alt='cdn admin architecture'/>
+    <img src="https://cdn.adityabaindur.dev/adityabaindur.dev/brands/r2-list/systems.png" alt='cdn admin architecture'/>
   </a>
 </p>
 
