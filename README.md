@@ -38,7 +38,9 @@ https://github.com/user-attachments/assets/3b29f0ae-2ae1-41df-8f21-27e9e2f67ccd
   </a>
 </p>
 <p align="center">
-  Click on the image to visit the landing page
+	 <a href="https://adityabaindur.dev/r2">
+  Click on on me to visit the landing page
+	 </a>
 </p>
 
 Cloudflare R2 is powerful, but day‑to‑day operations often require more than the CLI:
