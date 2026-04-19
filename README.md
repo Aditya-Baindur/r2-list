@@ -30,7 +30,11 @@
 
 <p align="center">
   <a href="https://adityabaindur.dev/r2">
-    <img src="https://cdn.adityabaindur.dev/adityabaindur.dev/brands/r2-list/cdn-admin-demo.png" alt='cdn-admin-demo'/>
+    
+
+https://github.com/user-attachments/assets/3b29f0ae-2ae1-41df-8f21-27e9e2f67ccd
+
+
   </a>
 </p>
 <p align="center">
